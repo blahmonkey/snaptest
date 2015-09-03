@@ -1,2 +1,0 @@
-# snaptest
-Snap SVG Test
