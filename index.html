@@ -1,0 +1,53 @@
+<html>
+    <head>
+        <title>Map Maker</title>
+        <script src="js/snap.svg-min.js"></script>
+    </head>
+    <body>
+        <script>
+            var s = Snap("24in","12in");
+            s.root.node.id = "svgroot";
+            Snap.load("svg/ForProInline.svg", function (frag) {
+                //var allg = frag.selectAll();
+                var g = frag.select("#Layer_1");
+                g.click(function() {
+      						alert("Clicked!");
+      					});
+                s.append(g);
+                var bBox = g.getBBox();
+                // console.log([bBox.x, bBox.y, bBox.width, bBox.height]);
+
+                // Get the svg element
+                var svgroot = document.getElementById("svgroot");
+                var rect1 = svgroot.createSVGRect();
+
+                var nResults = 0;
+                var resultArrayX = [];
+                var resultArrayY = [];
+                for (i = bBox.x; i < bBox.x + bBox.width; i+= 2)
+                {
+                  for (j = bBox.y; j < bBox.y + bBox.height; j+= 2)
+                  {
+                    rect1.x = i;
+                    rect1.y = j;
+                    rect1.width = 1;
+                    rect1.height = 1;
+                    var result = svgroot.getIntersectionList(rect1, null);
+                    if (result.length == 0)
+                    {
+                        resultArrayX[nResults] = rect1.x;
+                        resultArrayY[nResults] = rect1.y;
+                        nResults++;
+                        // Store in our array!
+                    }
+                      //s.rect(rect1.x, rect1.y, rect1.width, rect1.height);
+                    }
+                  }
+                  // console.log(resultArrayY);
+                    // console.log(result);
+                // var svgRect = s.rect(bBox.x, bBox.y, bBox.width, bBox.height);
+
+            });
+        </script>
+    </body>
+</html>
