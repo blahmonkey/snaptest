@@ -5,13 +5,31 @@
     </head>
     <body>
         <script>
-            var s = Snap("24in","12in");
+            var s = Snap(1024,768);
             s.root.node.id = "svgroot";
             Snap.load("svg/ForProInline.svg", function (frag) {
                 //var allg = frag.selectAll();
                 var g = frag.select("#Layer_1");
-                g.click(function() {
-      						alert("Clicked!");
+                var pt =  document.getElementById("svgroot").createSVGPoint();
+                g.click(function(event)
+                {
+                  var svgroot = document.getElementById("svgroot");
+                  var rectC = svgroot.createSVGRect();
+
+                  pt.x = event.x;
+                  pt.y = event.y;
+                  var transformed = pt.matrixTransform(svgroot.getScreenCTM().inverse());
+                  rectC.x = transformed.x;
+                  rectC.y = transformed.y;
+                  rectC.width = 1;
+                  rectC.height = 1;
+                  console.log([rectC.x, rectC.y]);
+                  var result = svgroot.getIntersectionList(rectC, null);
+                  //console.log(result);
+                  if (result.length != 0)
+                    console.log([rectC.x, rectC.y, result]);
+
+                  s.rect(rectC.x, rectC.y, 1, 1);
       					});
                 s.append(g);
                 var bBox = g.getBBox();
@@ -21,33 +39,73 @@
                 var svgroot = document.getElementById("svgroot");
                 var rect1 = svgroot.createSVGRect();
 
+                var cvs = document.createElement("canvas");
+
+
+                // get svg data
+                var xml = new XMLSerializer().serializeToString(svgroot);
+                // make it base64
+                var svg64 = btoa(xml);
+                var b64Start = 'data:image/svg+xml;base64,';
+
+                // prepend a "header"
+                var image64 = b64Start + svg64;
+
+                // set it as the source of the img element
+                var img = document.querySelector('img');
+                img.src = image64;
+
+                // Draw image into Canvas
+                var ctx = cvs.getContext('2d');
+                cvs.width = img.width;
+                cvs.height = img.height;
+                ctx.drawImage(img, 0, 0, img.width, img.height);
+
+                // Hide image
+                img.style.visibility = "hidden";
+
                 var nResults = 0;
                 var resultArrayX = [];
                 var resultArrayY = [];
-                for (i = bBox.x; i < bBox.x + bBox.width; i+= 2)
+                for (i = Math.floor(bBox.x); i < bBox.x + bBox.width; i+= 2)
                 {
-                  for (j = bBox.y; j < bBox.y + bBox.height; j+= 2)
+                  for (j = Math.floor(bBox.y); j < bBox.y + bBox.height; j+= 2)
                   {
                     rect1.x = i;
                     rect1.y = j;
                     rect1.width = 1;
                     rect1.height = 1;
-                    var result = svgroot.getIntersectionList(rect1, null);
-                    if (result.length == 0)
+                    // var result = svgroot.getIntersectionList(rect1, null);
+
+                    // Hit?
+                    // if (result.length != 0)
+                    // {
+                        // Need to check if actual path intersects not just
+                        // bounding box
+                    // }
+
+                    // Get pixel color
+                    var currPt = ctx.getImageData(i, j, 1, 1).data;
+                    if (currPt[0] != 0 || currPt[1] != 0 || currPt[2] != 0)
+                      rect = s.rect(rect1.x, rect1.y, rect1.width, rect1.height);
+
+                      // console.log(currPt);
+                    if (currPt[0] == 255 && currPt[1] == 255 && currPt[2] == 255)
                     {
-                        resultArrayX[nResults] = rect1.x;
-                        resultArrayY[nResults] = rect1.y;
-                        nResults++;
-                        // Store in our array!
-                    }
-                      //s.rect(rect1.x, rect1.y, rect1.width, rect1.height);
+                      // Store in our array!
+                      resultArrayX[nResults] = rect1.x;
+                      resultArrayY[nResults] = rect1.y;
+                      nResults++;
+                      rect = s.rect(rect1.x, rect1.y, rect1.width, rect1.height);
+                      rect.attr("fill", "blue");
                     }
                   }
-                  // console.log(resultArrayY);
-                    // console.log(result);
-                // var svgRect = s.rect(bBox.x, bBox.y, bBox.width, bBox.height);
-
+                    if ((i % 10) == 0)
+                      console.log("Done with i: " + i);
+                }
+                console.log("Page rendered");
             });
         </script>
+        <img/>
     </body>
 </html>
