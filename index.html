@@ -2,6 +2,7 @@
     <head>
         <title>Map Maker</title>
         <script src="js/snap.svg-min.js"></script>
+        <script src="js/Queue.js"></script>
     </head>
     <body>
         <script>
@@ -11,6 +12,7 @@
                 //var allg = frag.selectAll();
                 var g = frag.select("#Layer_1");
                 var pt =  document.getElementById("svgroot").createSVGPoint();
+                /*
                 g.click(function(event)
                 {
                   var svgroot = document.getElementById("svgroot");
@@ -31,16 +33,18 @@
 
                   s.rect(rectC.x, rectC.y, 1, 1);
       					});
+                */
                 s.append(g);
+
+                // Get bounding box of the SVG element group
                 var bBox = g.getBBox();
                 // console.log([bBox.x, bBox.y, bBox.width, bBox.height]);
 
-                // Get the svg element
+                // Get the svg element root
                 var svgroot = document.getElementById("svgroot");
-                var rect1 = svgroot.createSVGRect();
 
+                // Create a Canvas
                 var cvs = document.createElement("canvas");
-
 
                 // get svg data
                 var xml = new XMLSerializer().serializeToString(svgroot);
@@ -67,45 +71,176 @@
                 var nResults = 0;
                 var resultArrayX = [];
                 var resultArrayY = [];
-                for (i = Math.floor(bBox.x); i < bBox.x + bBox.width; i+= 2)
+                var FlagArray = Create2DArray(Math.floor(bBox.x + bBox.width) + 2);
+                var ClrArray = Create2DArray(Math.floor(bBox.x + bBox.width) + 2);
+
+                // Pre blit the colors
+                for (i = Math.floor(bBox.x); i < bBox.x + bBox.width; i+= 1)
                 {
-                  for (j = Math.floor(bBox.y); j < bBox.y + bBox.height; j+= 2)
-                  {
-                    rect1.x = i;
-                    rect1.y = j;
-                    rect1.width = 1;
-                    rect1.height = 1;
-                    // var result = svgroot.getIntersectionList(rect1, null);
-
-                    // Hit?
-                    // if (result.length != 0)
-                    // {
-                        // Need to check if actual path intersects not just
-                        // bounding box
-                    // }
-
-                    // Get pixel color
-                    var currPt = ctx.getImageData(i, j, 1, 1).data;
-                    if (currPt[0] != 0 || currPt[1] != 0 || currPt[2] != 0)
-                      rect = s.rect(rect1.x, rect1.y, rect1.width, rect1.height);
-
-                      // console.log(currPt);
-                    if (currPt[0] == 255 && currPt[1] == 255 && currPt[2] == 255)
+                    for (j = Math.floor(bBox.y); j < bBox.y + bBox.height; j+= 1)
                     {
-                      // Store in our array!
-                      resultArrayX[nResults] = rect1.x;
-                      resultArrayY[nResults] = rect1.y;
-                      nResults++;
-                      rect = s.rect(rect1.x, rect1.y, rect1.width, rect1.height);
-                      rect.attr("fill", "blue");
+                        var pt = ctx.getImageData(i, j, 1, 1).data;
+                        if (pt[0] > 0 || pt[1] > 0 || pt[2] > 0)
+                          ClrArray[i][j] = 0;
+                        else {
+                          ClrArray[i][j] = 1;
+                        }
                     }
-                  }
-                    if ((i % 10) == 0)
-                      console.log("Done with i: " + i);
                 }
-                console.log("Page rendered");
+
+                for (i = Math.floor(bBox.x); i < bBox.x + bBox.width; i+= 1)
+                {
+                    for (j = Math.floor(bBox.y); j < bBox.y + bBox.height; j+= 1)
+                    {
+                        // Check entire 3x3 matrix
+                        if ((ClrArray[i - 1][j - 1] > 0)
+                        && (ClrArray[i][j - 1] > 0)
+                        && (ClrArray[i + 1][j - 1] > 0)
+                        && (ClrArray[i - 1][j] > 0)
+                        && (ClrArray[i][j] > 0)
+                        && (ClrArray[i + 1][j] > 0)
+                        && (ClrArray[i - 1][j + 1] > 0)
+                        && (ClrArray[i][j + 1] > 0)
+                        && (ClrArray[i + 1][j + 1] > 0))
+                        {
+                            // Store co-ords in our arrays
+                            resultArrayX[nResults] = i;
+                            resultArrayY[nResults] = j;
+
+                            // Have the reverse map of (i, j) to array index
+                            FlagArray[i][j] = nResults + 3;
+                            nResults++;
+                            // rect = s.rect(rect1.x, rect1.y, 1, 1);
+                            // rect.attr("fill", "blue");
+                        }
+                        else
+                            // This ij has no result #
+                            FlagArray[i][j] = 0;
+                    }
+                    if ((i % 50) == 0)
+                        console.log("Done with i: " + i);
+                }
+                console.log("Page rendered: " + nResults);
+
+                var iSrcNode = 3200;
+                var iDestNode = 19115;
+
+                var distArray = [];
+                var parentArray = [];
+                var nodeSet = new Set();
+
+
+                // Initialize data
+                for (i = 0; i < nResults; i++)
+                {
+                    distArray[i] = Number.POSITIVE_INFINITY;
+                    parentArray[i] = -1;
+                    nodeSet.add(i);
+                }
+
+                // Dist of src from itself = 0
+                distArray[iSrcNode] = 0;
+
+                // Until queue is empty
+                while (nodeSet.size > 0)
+                {
+                    var u, udist;
+                    udist = Number.POSITIVE_INFINITY;
+
+                    // Pop min-dist element
+                    nodeSet.forEach(function(iter)
+                    {
+                        // Lower distance ?
+                        if (distArray[iter] <= udist)
+                        {
+                            // Stow
+                            u = iter;
+                            udist = distArray[iter];
+                        }
+                    });
+
+                    // Done: remove from set
+                    nodeSet.delete(u);
+
+
+                    // Check all adjacent nodes
+                    var x = resultArrayX[u];
+                    var y = resultArrayY[u];
+
+                    if (FlagArray[x - 1][y - 1] >= 3)
+                        ProcessAdj(FlagArray[x - 1][y - 1] - 3, distArray, parentArray, u, 1.4);
+                    if (FlagArray[x][y - 1] >= 3)
+                        ProcessAdj(FlagArray[x][y - 1] - 3, distArray, parentArray, u, 1);
+                    if (FlagArray[x + 1][y - 1] >= 3)
+                        ProcessAdj(FlagArray[x + 1][y - 1] - 3, distArray, parentArray, u, 1.4);
+                    if (FlagArray[x - 1][y] >= 3)
+                        ProcessAdj(FlagArray[x - 1][y] - 3, distArray, parentArray, u, 1);
+                    if (FlagArray[x + 1][y] >= 3)
+                        ProcessAdj(FlagArray[x + 1][y] - 3, distArray, parentArray, u, 1);
+                    if (FlagArray[x - 1][y + 1] >= 3)
+                        ProcessAdj(FlagArray[x - 1][y + 1] - 3, distArray, parentArray, u, 1.4);
+                    if (FlagArray[x][y + 1] >= 3)
+                        ProcessAdj(FlagArray[x][y + 1] - 3, distArray, parentArray, u, 1);
+                    if (FlagArray[x + 1][y + 1] >= 3)
+                        ProcessAdj(FlagArray[x + 1][y + 1] - 3, distArray, parentArray, u, 1.4);
+
+                    if ((nodeSet.size % 500) == 0)
+                      console.log("Done with size: " + nodeSet.size);
+
+                }
+
+                x = resultArrayX[iSrcNode];
+                y = resultArrayY[iSrcNode];
+                var r = s.rect(x - 2, y - 2, 4, 4);
+                r.attr("fill", "red");
+
+                x = resultArrayX[iDestNode];
+                y = resultArrayY[iDestNode];
+                r = s.rect(x - 2, y - 2, 4, 4);
+                r.attr("fill", "green");
+
+
+                console.log("Processed BFS: " + distArray[iDestNode]);
+                if (distArray[iDestNode] < Number.POSITIVE_INFINITY)
+                {
+                  var iter = parentArray[iDestNode];
+                  while (parentArray[iter] != iSrcNode)
+                  {
+                      x = resultArrayX[iter];
+                      y = resultArrayY[iter];
+                      s.rect(x, y, 1, 1);
+
+                      iter = parentArray[iter];
+                  }
+                  console.log("Displayed Route");
+
+                }
+
             });
-        </script>
+
+            function ProcessAdj(v, dArray, pArray, u, distuv)
+            {
+                // Calc new distance
+                var alt = dArray[u] + distuv;
+
+                // Shorter?
+                if (alt < dArray[v])
+                {
+                    // Replace parent + distance
+                    dArray[v] = alt;
+                    pArray[v] = u;
+                }
+            }
+
+            function Create2DArray(rows) {
+              var arr = [];
+
+              for (var i=0;i<rows;i++) {
+                 arr[i] = [];
+              }
+
+              return arr;
+            }        </script>
         <img/>
     </body>
 </html>
