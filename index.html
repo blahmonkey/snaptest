@@ -33,9 +33,10 @@
                     else {
                       g_dstx = Math.floor(transformed.x);
                       g_dsty = Math.floor(transformed.y);
+                      // Hide the rect so the path finding doesnt feel its unwalkable
                       s.rect(g_srcx - 2, g_srcy - 2, 4, 4).attr("fill", "black");
-                      // s.rect(g_dstx - 2, g_dsty - 2, 4, 4).attr("fill", "green");
                       renderPath(g_srcx, g_srcy, g_dstx, g_dsty);
+                      s.rect(g_srcx - 2, g_srcy - 2, 4, 4).attr("fill", "red");
                     }
                 }
               );
@@ -161,7 +162,8 @@
               else if (!pathGrid.isWalkableAt(dstx, dsty))
                 console.log("Src walkable, Dst unwalkable");
 
-              var pathFinder = new PF.BiDijkstraFinder({allowDiagonal: true});
+              var pathFinder = new PF.AStarFinder({allowDiagonal: true, dontCrossCorners: true,
+                heuristic: PF.Heuristic.chebyshev});
               var path = pathFinder.findPath(srcx, srcy, dstx, dsty, pathGrid);
               if (path.length){
                 // Smoothen and decompress the result
