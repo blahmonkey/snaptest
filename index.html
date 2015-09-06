@@ -105,7 +105,7 @@
                           y = j - baseY;
 
                           // Dest?
-                          if (x == dstx && y == dsty)
+                          if (i == dstx && j == dsty)
                           {
                               console.log("Destination unwalkable!");
                               DoneFlag = 1;
@@ -153,12 +153,6 @@
               dstx -= baseX;
               dsty -= baseY;
               console.log("Computing path from (" + srcx + "," + srcy + ") to (" + dstx + "," + dsty + ")");
-
-              // Check walkability
-              if (!pathGrid.isWalkableAt(srcx, srcy))
-                console.log("Src unwalkable; Dst not checked");
-              else if (!pathGrid.isWalkableAt(dstx, dsty))
-                console.log("Src walkable, Dst unwalkable");
 
               var pathFinder = new PF.AStarFinder({allowDiagonal: true, dontCrossCorners: true,
                 heuristic: PF.Heuristic.chebyshev});
