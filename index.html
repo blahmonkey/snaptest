@@ -7,16 +7,25 @@
     <body>
         <script>
             var s = Snap(1024,768);
-            var g_l0, g_l1, g_3;
+            var g_l0, g_l1, g_l2, g_l3, g_bBox;
             s.root.node.id = "svgroot";
-            Snap.load("svg/ForProInline.svg", function (frag) {
+            Snap.load("svg/WalkwaysEd.svg", function (frag) {
                 // var allg = frag.selectAll(); // If we want to select all groups in SVG
                 g_l1 = frag.select("#Layer_1");
                 s.append(g_l1);
-                g_l0 = frag.select("#Layer_0");
-                g_l3 = frag.select("#Layer_3");
 
                 var svgroot = document.getElementById("svgroot");
+
+                // Get bounding box of the SVG element for Layer_1
+                g_bBox = svgroot.getBBox();
+
+                g_l0 = frag.select("#Layer_0");
+                g_l2 = frag.select("#Layer_2");
+                g_l3 = frag.select("#Layer_3");
+                g_l1.prepend(g_l0);
+                g_l1.append(g_l2);
+                g_l1.append(g_l3);
+
                 var g_srcx, g_srcy, g_dstx, g_dsty;
                 svgroot.addEventListener('click', function(event){
                     var pt = svgroot.createSVGPoint();
@@ -36,7 +45,6 @@
                       // Hide the rect so the path finding doesnt feel its unwalkable
                       s.rect(g_srcx - 2, g_srcy - 2, 4, 4).attr("fill", "black");
                       renderPath(g_srcx, g_srcy, g_dstx, g_dsty);
-                      s.rect(g_srcx - 2, g_srcy - 2, 4, 4).attr("fill", "red");
                     }
                 }
               );
@@ -45,9 +53,6 @@
             function renderPath(srcx, srcy, dstx, dsty){
               // Get the svg element root
               var svgroot = document.getElementById("svgroot");
-
-              // Get bounding box of the SVG element group
-              var bBox = svgroot.getBBox();
 
               // Create a Canvas
               var cvs = document.createElement("canvas");
@@ -72,61 +77,40 @@
               ctx.drawImage(img, 0, 0, img.width, img.height);
 
               // Delete img
-              img.parentNode.removeChild(img);
+              // img.parentNode.removeChild(img);
 
-              var ClrArray = Create2DArray(Math.floor(bBox.x + bBox.width) + 2);
+              var cols = Math.floor(g_bBox.width);
+              var rows = Math.floor(g_bBox.height);
+              var baseX = Math.floor(g_bBox.x);
+              var baseY = Math.floor(g_bBox.y);
 
-              // Pre blit the colors
-              var cols = Math.floor(bBox.width);
-              var rows = Math.floor(bBox.height);
-              var baseX = Math.floor(bBox.x);
-              var baseY = Math.floor(bBox.y);
+              console.log("Computing Grid for path finding");
+              // console.log([baseX, baseY, cols, rows]);
+              var pathGrid = new PF.Grid(cols + 5, rows + 5);
+
+              var DoneFlag = 0;
+
+              // Scan X(Y(color))
               for (i = baseX; i < (baseX + cols); i+= 1)
               {
                   for (j = baseY; j < (baseY + rows); j+= 1)
                   {
                       var pt = ctx.getImageData(i, j, 1, 1).data;
 
-                      // Filter out the pure R and pure G - src and dest
-                      if (pt[0] == 255 && pt[1] == 0 && pt[2] == 0)
-                        ClrArray[i][j] = 1;
-                      else if (pt[0] == 0 && pt[1] == 255 && pt[2] == 0)
-                        ClrArray[i][j] = 1;
-                      else if (pt[0] > 0 || pt[1] > 0 || pt[2] > 0)
-                        ClrArray[i][j] = 0;
-                      else
-                        ClrArray[i][j] = 1;
-                  }
-              }
-
-              console.log("Computing Grid for path finding");
-              var pathGrid = new PF.Grid(cols + 5, rows + 5);
-
-              // Build list of unwalkable points for PathFinder algo
-              for (i = baseX; i < (baseX + cols); i+= 1)
-              {
-                  for (j = baseY; j < (baseY + rows); j+= 1)
-                  {
-                      // DISABLED: Check entire 3x3 matrix - if even one has a non-(0,0,0)
-                      // then this point is unwalkable (either it is a wall OR
-                      // ..is adjacent to a wall)
-                      /*
-                      if (!((ClrArray[i - 1][j - 1] > 0)
-                      && (ClrArray[i][j - 1] > 0)
-                      && (ClrArray[i + 1][j - 1] > 0)
-                      && (ClrArray[i - 1][j] > 0)
-                      && (ClrArray[i][j] > 0)
-                      && (ClrArray[i + 1][j] > 0)
-                      && (ClrArray[i - 1][j + 1] > 0)
-                      && (ClrArray[i][j + 1] > 0)
-                      && (ClrArray[i + 1][j + 1] > 0)))
-                      */
-                      if (!ClrArray[i][j])
+                      // Walkable points are RGB(<30,<30,<30) only
+                      if (pt[0] > 30 || pt[1] > 30 || pt[2] > 30)
                       {
                           // Update path Grid
                           x = i - baseX;
                           y = j - baseY;
-                          // s.rect(i, j, 1, 1).attr("fill", "brown"); // shows all unwalkable pts
+
+                          // Dest?
+                          if (x == dstx && y == dsty)
+                          {
+                              console.log("Destination unwalkable!");
+                              DoneFlag = 1;
+                              break;
+                          }
                           try
                           {
                               pathGrid.setWalkableAt(x, y, false);
@@ -137,7 +121,13 @@
                               console.log("Setting unwalkablexy: [" + x + "][" + y + "]");
                           }
                       }
+                      else {
+                           //s.rect(i, j, 1, 1).attr("fill", "brown"); // shows all walkable pts
+                      }
                   }
+                  if (DoneFlag)
+                    break;
+
                   if ((i % 100) == 0)
                       console.log("Done with i: " + i);
               }
@@ -149,6 +139,14 @@
 
               // Display overlay
               g_l1.append(g_l3);
+
+              // Display overlay
+              var l2 = document.getElementById("Layer_2");
+              l2.parentNode.removeChild(l2);
+
+              //g_l1.append(g_l2);
+              if (DoneFlag)
+                return;
 
               srcx -= baseX;
               srcy -= baseY;
