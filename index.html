@@ -9,7 +9,7 @@
             var s = Snap(1024,768);
             var g_l0, g_l1, g_l2, g_l3, g_bBox;
             s.root.node.id = "svgroot";
-            Snap.load("svg/WalkwaysEd.svg", function (frag) {
+            Snap.load("svg/Floor2.svg", function (frag) {
                 // var allg = frag.selectAll(); // If we want to select all groups in SVG
                 g_l1 = frag.select("#Layer_1");
                 s.append(g_l1);
@@ -44,6 +44,9 @@
                       g_dsty = Math.floor(transformed.y);
                       // Hide the rect so the path finding doesnt feel its unwalkable
                       s.rect(g_srcx - 2, g_srcy - 2, 4, 4).attr("fill", "black");
+
+                      // Black rect can also avoid misclicks when choosing dest! (same with src)
+                      s.rect(g_dstx - 2, g_dsty - 2, 4, 4).attr("fill", "black");
                       renderPath(g_srcx, g_srcy, g_dstx, g_dsty);
                     }
                 }
@@ -170,7 +173,7 @@
                     x = current[0];
                     y = current[1];
                     r = s.rect(x + baseX, y + baseY, 1, 1);
-                    r.attr("fill", "blue");
+                    r.attr("fill", "purple");
                 }
 
                 console.log("Path rendered");
